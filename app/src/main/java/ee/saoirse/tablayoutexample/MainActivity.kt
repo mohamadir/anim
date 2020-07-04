@@ -1,12 +1,13 @@
 package ee.saoirse.tablayoutexample
 
+import android.animation.AnimatorSet
+import android.animation.ValueAnimator
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.view.animation.Animation
-import android.view.animation.AnimationUtils
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.NestedScrollView
@@ -25,6 +26,7 @@ class MainActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
     private var scrollView: NestedScrollView? = null
     private var viewChanged: View? = null
     private var pieChart: PieChart? = null
+    private var textView: TextView? = null
 
     var isShow = true
     var scrollRange = -1
@@ -35,8 +37,8 @@ class MainActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
         val appbar = findViewById<View>(R.id.appbar) as AppBarLayout
         appbar.addOnOffsetChangedListener(this)
         appbar
-         scrollView = findViewById<View>(R.id.scrollView) as NestedScrollView
-         viewChanged = findViewById<View>(R.id.viewChange) as View
+        scrollView = findViewById<View>(R.id.scrollView) as NestedScrollView
+        textView = findViewById<TextView>(R.id.textView) as TextView
         setScrollChange()
         tabLayout.setTabTextColors(Color.BLACK, Color.WHITE)
         tabLayout.addTab(tabLayout.newTab().setText("Tab 1"))
@@ -60,23 +62,34 @@ class MainActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
         val data = PieData(dataSet)
         // In Percentage
         data.setValueFormatter(PercentFormatter())
-
-         pieChart!!.data = data
-         pieChart!!.description.text = ""
-         pieChart!!.isDrawHoleEnabled = false
+        dataSet.colors = listOf(Color.RED, Color.YELLOW, Color.GREEN)
+        pieChart!!.data = data
+        pieChart!!.description.text = ""
+        pieChart!!.isDrawHoleEnabled = false
         data.setValueTextSize(13f)
 
-
-        chartDetails( pieChart!!, Typeface.SANS_SERIF)
+        chartDetails(pieChart!!, Typeface.SANS_SERIF)
     }
 
     private fun setScrollChange() {
 
-        scrollView?.setOnScrollChangeListener { view, i, i2, i3, i4 ->
 
+        scrollView?.setOnScrollChangeListener { view, x, y, oX, oY ->
+//            Log.i("scrollViewPrint","$i2")
+            if (y > oY && oY == 0 ) {
+                expandView(pieChart!!, pieChart?.layoutParams!!.height, pieChart?.layoutParams!!.height / 2, 0f, 20f);
+                pieChart!!.data.setValueTextColor(Color.TRANSPARENT)
+            }
+            if (y == 0   ){
+                pieChart!!.data.setValueTextColor(Color.BLACK)
+                expandView(pieChart!!, pieChart?.layoutParams!!.height, pieChart?.layoutParams!!.height * 2, 20f, 0f);
+            }
+            pieChart?.requestLayout()
+            pieChart?.invalidate()
         }
 
-   }
+
+    }
 
 
     fun chartDetails(mChart: PieChart, tf: Typeface) {
@@ -108,19 +121,77 @@ class MainActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
         mChart.isRotationEnabled = false
     }
 
+
+    fun expandView(view: View,
+                   currentHeight: Int,
+                   newHeight: Int,
+                   startSize : Float,
+                  endSize : Float) {
+
+        var slideAnimator: ValueAnimator = ValueAnimator.ofInt(currentHeight, newHeight)
+                .setDuration(500)
+        slideAnimator.addUpdateListener { animation1: ValueAnimator ->
+            val value = animation1.animatedValue as Int
+            view.layoutParams.height = value
+            view.layoutParams.width = value
+            view.requestLayout()
+        }
+
+        /* We use an update listener which listens to each tick
+         * and manually updates the height of the view  */
+        slideAnimator.addUpdateListener {
+            var value: Int = it.animatedValue as Int
+            view.getLayoutParams().height = value
+            view.getLayoutParams().width = value
+            view.requestLayout();
+        }
+
+        var animationSet: AnimatorSet = AnimatorSet();
+        animationSet.setInterpolator(AccelerateDecelerateInterpolator());
+        animationSet.play(slideAnimator);
+        animationSet.start()
+
+
+
+
+        val animationDuration: Long = 500 // Animation duration in ms
+
+
+        val animator = ValueAnimator.ofFloat(startSize, endSize)
+        animator.duration = animationDuration
+
+        animator.addUpdateListener { valueAnimator ->
+            val animatedValue = valueAnimator.animatedValue as Float
+            textView?.setTextSize(animatedValue)
+        }
+
+        animator.start()
+
+
+    }
+
+
     override fun onOffsetChanged(appBarLayout: AppBarLayout?, verticalOffset: Int) {
-        val percentage: Double = Math.abs(verticalOffset).toDouble() / appBarLayout!!.getHeight()
-        val scale = ( 1 - percentage ) * 100
-        val scaleVal = Math.round((scale  *  viewChanged?.layoutParams?.width!! ) ) / 100
-        val textView = findViewById<TextView>(R.id.textView)
+//        val percentage: Double = Math.abs(verticalOffset).toDouble() / appBarLayout!!.getHeight()
+//        val scale = ( 1 - percentage ) * 100
+//        val scaleVal = Math.round((scale  *  viewChanged?.layoutParams?.width!! ) ) / 100
+//        val textView = findViewById<TextView>(R.id.textView)
+//        if (verticalOffset == 0 ){
+//            Log.i("COLLAPSE-MODE","expanded")
+//            viewChanged?.layoutParams?.width = (viewChanged?.layoutParams?.width!! / 2).toInt()
+//            viewChanged?.layoutParams?.height = (viewChanged?.layoutParams?.height!! / 2).toInt()
+//        } else {
+//            Log.i("COLLAPSE-MODE","collapsed")
+//
+//        }
 //        textView.setTextSize((resources.getDimension(R.dimen.textSize) * percentage).toFloat())
 //        textView.requestLayout()
 //        viewChanged?.layoutParams?.width = (viewChanged?.layoutParams?.width!! * scale).toInt()
 //        viewChanged?.layoutParams?.height = (viewChanged?.layoutParams?.height!! * scale).toInt()
-        viewChanged!!.scaleY = (1 - percentage).toFloat()
-        viewChanged!!.scaleX = (1 - percentage).toFloat()
-        viewChanged?.requestLayout()
-        viewChanged?.invalidate()
+//        viewChanged!!.scaleY = 0.5f
+//        viewChanged!!.scaleX = 0.5f
+//        viewChanged?.requestLayout()
+//        viewChanged?.invalidate()
         Log.i("scale-offset", viewChanged?.layoutParams?.height.toString())
 
 
@@ -129,7 +200,6 @@ class MainActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
 //        viewChanged?.layoutParams?.height =  ( viewChanged?.layoutParams?.height!! * percentage ).toInt()
 //        viewChanged?.layoutParams?.width =  ( viewChanged?.layoutParams?.width!! * percentage ).toInt()
 //        viewChanged.invalidate()
-
 
 
     }
